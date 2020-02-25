@@ -130,3 +130,7 @@ dmypy.json
 
 # Data files
 data/**/*.csv
+data/**/*.txt
+
+# Pickled files
+*.pkl
