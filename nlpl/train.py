@@ -5,6 +5,8 @@ from typing import List
 
 from keras_preprocessing.text import Tokenizer
 
+from sampling import Sampler
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
@@ -59,3 +61,4 @@ if __name__ == "__main__":
     sentences: List[str] = read_sentences(sentences_path)
 
     tokenizer: Tokenizer = create_tokenizer(sentences)
+    sampler = Sampler(word_counts=tokenizer.word_counts)
