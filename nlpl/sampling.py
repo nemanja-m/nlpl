@@ -28,6 +28,7 @@ class Sampler:
 
         self._list_pow_word_probs: List[float] = [0] * len(index_word)
         for index, word in index_word.items():
+            # index - 1 for OOV token that has 0 index.
             self._list_pow_word_probs[index - 1] = self._pow_word_probs[word]
 
     def _count_total_words(
@@ -77,5 +78,6 @@ class Sampler:
         if return_indices:
             return word_indices
 
-        negative_words = [self._index_word[index] for index in word_indices]
+        # index + 1 because if OOV token that has 0 index.
+        negative_words = [self._index_word[index + 1] for index in word_indices]
         return negative_words
