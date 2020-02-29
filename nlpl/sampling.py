@@ -7,17 +7,28 @@ class Sampler:
     def __init__(
         self,
         word_counts: Dict[str, int],
+        index_word: Dict[int, str],
         sample_rate: float = 1e-3,
-        word_prob_power: float = 0.75,
+        word_prob_power: float = 0.75,  # 3/4 as in the original word2vec paper.
     ):
-        self.sample_rate: float = sample_rate
+        self._index_word: Dict[int, str] = index_word
+        self._sample_rate: float = sample_rate
 
-        self._total_words, self._pow_total_words = self._count_total_words(
+        total_words, pow_total_words = self._count_total_words(
             word_counts, word_prob_power
         )
-        self._word_probs, self._pow_word_probs = self._calculate_word_probabilities(
+        self._total_words: int = total_words
+        self._pow_total_words: float = pow_total_words
+
+        word_probs, pow_word_probs = self._calculate_word_probabilities(
             word_counts, word_prob_power
         )
+        self._word_probs: Dict[str, float] = word_probs
+        self._pow_word_probs: Dict[str, float] = pow_word_probs
+
+        self._list_pow_word_probs: List[float] = [0] * len(index_word)
+        for index, word in index_word.items():
+            self._list_pow_word_probs[index - 1] = self._pow_word_probs[word]
 
     def _count_total_words(
         self, word_counts: Dict[str, int], word_prob_power: float
@@ -40,7 +51,7 @@ class Sampler:
         for word, count in word_counts.items():
             word_prob = count / self._total_words
             word_probs[word] = word_prob
-            pow_word_prob = pow(word_prob, word_prob_power)
+            pow_word_prob = pow(count, word_prob_power) / self._pow_total_words
             pow_word_probs[word] = pow_word_prob
 
         return word_probs, pow_word_probs
@@ -50,14 +61,21 @@ class Sampler:
             return False
 
         word_prob = self._word_probs[word]
-        keep_prob: float = (np.sqrt(word_prob / self.sample_rate) + 1) * (
-            self.sample_rate / word_prob
+        keep_prob: float = (np.sqrt(word_prob / self._sample_rate) + 1) * (
+            self._sample_rate / word_prob
         )
 
         return np.random.random() <= keep_prob
 
-    def sample_negatives(self, ignore_word: str, n_samples: int = 10) -> List[str]:
-        # TODO Use word probabilities as a list.
-        word_indices = np.choice(
-            len(self._pow_word_probs), size=n_samples, p=self._pow_word_probs
+    def sample_negatives(
+        self, ignore_word: str = None, n_samples: int = 10, return_indices: bool = False
+    ) -> List[str]:
+        word_indices = np.random.choice(
+            len(self._list_pow_word_probs), size=n_samples, p=self._list_pow_word_probs
         )
+
+        if return_indices:
+            return word_indices
+
+        negative_words = [self._index_word[index] for index in word_indices]
+        return negative_words

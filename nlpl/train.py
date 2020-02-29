@@ -61,4 +61,10 @@ if __name__ == "__main__":
     sentences: List[str] = read_sentences(sentences_path)
 
     tokenizer: Tokenizer = create_tokenizer(sentences)
-    sampler = Sampler(word_counts=tokenizer.word_counts)
+    sampler = Sampler(
+        word_counts=tokenizer.word_counts, index_word=tokenizer.index_word
+    )
+
+    negative_words = sampler.sample_negatives()
+
+    print(negative_words)
