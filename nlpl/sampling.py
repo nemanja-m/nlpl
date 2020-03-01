@@ -69,15 +69,23 @@ class Sampler:
         return np.random.random() <= keep_prob
 
     def sample_negatives(
-        self, ignore_word: str = None, n_samples: int = 10, return_indices: bool = False
-    ) -> List[str]:
+        self, ignore_word_index: int = None, n_samples: int = 10,
+    ) -> List[int]:
+        # Additional 2 words are sampled to reduce chance of picking ignored
+        # word.
+        size = n_samples + 2
+
         word_indices = np.random.choice(
-            len(self._list_pow_word_probs), size=n_samples, p=self._list_pow_word_probs
+            len(self._list_pow_word_probs), size=size, p=self._list_pow_word_probs
         )
 
-        if return_indices:
-            return word_indices
+        indices: List[int] = []
+        for word_index in word_indices:
+            if len(indices) == n_samples:
+                break
 
-        # index + 1 because if OOV token that has 0 index.
-        negative_words = [self._index_word[index + 1] for index in word_indices]
-        return negative_words
+            if word_index != ignore_word_index:
+                # index + 1 because if OOV token that has 0 index.
+                indices.append(word_index + 1)
+
+        return indices

@@ -134,3 +134,9 @@ data/**/*.txt
 
 # Pickled files
 *.pkl
+
+# Tensorboard logs
+tensorboard_logs/
+
+# Trained word vectors
+*.vec
