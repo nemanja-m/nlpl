@@ -5,7 +5,7 @@ from typing import Any, List, Dict, Tuple, Generator
 
 import numpy as np
 import pandas as pd
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, ModelCheckpoint
 from keras.layers import dot, Input, Dense, Reshape
 from keras.layers.embeddings import Embedding
 from keras.models import Model
@@ -22,14 +22,15 @@ current_file: str = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR: str = os.path.dirname(current_file)
 DATA_DIR: str = os.path.join(ROOT_DIR, "data")
 CACHE_DIR: str = os.path.join(ROOT_DIR, ".cache")
+MODELS_DIR: str = os.path.join(ROOT_DIR, "models")
 
-NUM_WORDS: int = 100_000 + 1  # +1 for PAD token.
-EMBEDDING_DIM: int = 300
+NUM_WORDS: int = 50_000 + 1  # +1 for PAD token.
+EMBEDDING_DIM: int = 256
 
 EPOCHS: int = 20
-STEPS_PER_EPOCH: int = 10_000_000
+STEPS_PER_EPOCH: int = 10  # 10_000_000
 
-TENSORBOARD_LOGS_DIR = "tensorboard_logs"
+TENSORBOARD_LOGS_DIR = os.path.join(ROOT_DIR, ".tensorboard_logs")
 
 
 def load_sampler_and_sequences(sentences_path: str) -> Tuple[Sampler, List[List[int]]]:
@@ -210,7 +211,13 @@ if __name__ == "__main__":
                 write_grads=False,
                 write_graph=False,
                 histogram_freq=0,
-            )
+            ),
+            ModelCheckpoint(
+                filepath=os.path.join(MODELS_DIR, "weights.{epoch:02d}.hdf5"),
+                monitor="loss",
+                save_best_only=True,
+                save_weights_only=True,
+            ),
         ],
     )
 

@@ -136,7 +136,7 @@ data/**/*.txt
 *.pkl
 
 # Tensorboard logs
-tensorboard_logs/
+.tensorboard_logs/
 
 # Trained word vectors
 *.vec
