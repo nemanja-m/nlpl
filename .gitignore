@@ -140,3 +140,4 @@ data/**/*.txt
 
 # Trained word vectors
 *.vec
+*.hdf5
