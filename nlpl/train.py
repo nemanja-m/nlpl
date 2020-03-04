@@ -225,5 +225,14 @@ if __name__ == "__main__":
     df = pd.DataFrame(weights, index=sampler._index_word.values())
 
     word_vectors_path = os.path.join(ROOT_DIR, "vectors", "cbow.vec")
-    df.to_csv(word_vectors_path, header=False, sep=" ")
+
+    np.savetxt(
+        word_vectors_path,
+        df.reset_index().values,
+        header="{} {}".format(NUM_WORDS, EMBEDDING_DIM),
+        fmt=["%s"] + ["%.12e"] * EMBEDDING_DIM,
+        delimiter=" ",
+        comments="",
+    )
+
     logging.info(f"Word vectors saved to '{word_vectors_path}'")
