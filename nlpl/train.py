@@ -5,11 +5,10 @@ from typing import List, Dict, Tuple, Iterator
 
 import numpy as np
 import pandas as pd
-from keras.callbacks import TensorBoard, ModelCheckpoint
-from keras.layers import dot, Input, Dense, Reshape
-from keras.layers.embeddings import Embedding
-from keras.models import Model
-from keras_preprocessing.text import Tokenizer
+from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
+from tensorflow.keras.layers import dot, Input, Dense, Reshape, Embedding
+from tensorflow.keras.models import Model
+from tensorflow.keras.preprocessing.text import Tokenizer
 
 import generators
 from sampling import Sampler
@@ -146,7 +145,7 @@ if __name__ == "__main__":
         sequences, sampler, window_size=window_size
     )
 
-    model.fit_generator(
+    model.fit(
         sample_generator,
         steps_per_epoch=STEPS_PER_EPOCH,
         epochs=EPOCHS,

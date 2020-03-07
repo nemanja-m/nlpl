@@ -2,7 +2,7 @@ from collections import Generator
 from typing import List, Tuple
 
 import numpy as np
-from keras_preprocessing import sequence
+from tensorflow.keras.preprocessing import sequence
 
 from sampling import Sampler
 
