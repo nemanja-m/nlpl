@@ -97,3 +97,71 @@ class CBOWSampleGenerator(Generator):
         self._reset_batch()
 
         return [context_sequence, target_sequence], labels
+
+
+class SkipgramSamplesGenerator(Generator):
+    def __init__(
+        self,
+        sequences: List[List[int]],
+        num_words: int,
+        window_size: int = 5,
+        batch_size: int = 32,
+    ):
+        self._sequences = sequences
+        self._num_words = num_words
+        self._window_size = window_size
+        self._batch_size = batch_size
+
+        self._sampling_table = sequence.make_sampling_table(size=num_words)
+        self._reset_batch()
+
+    def throw(self, type=None, value=None, traceback=None) -> None:
+        raise super().throw(type, value, traceback)
+
+    def send(self, _) -> Tuple[List, np.ndarray]:
+        iteration = 0
+        while True:
+            sentence = self._sequences[iteration]
+            iteration = (iteration + 1) % len(self._sequences)
+
+            pairs, labels = sequence.skipgrams(
+                sentence,
+                vocabulary_size=self._num_words,
+                window_size=self._window_size,
+                sampling_table=self._sampling_table,
+            )
+
+            if pairs:
+                target_words, context_words = zip(*pairs)
+
+                # Batch size is at least 32. Higher batch size is not
+                # problematic.
+                self._add_to_batch(context_words, target_words, labels)
+
+                if self._is_batch_ready():
+                    return self._process_batch()
+
+    def _is_batch_ready(self) -> bool:
+        return len(self._contexts_batch) >= self._batch_size
+
+    def _reset_batch(self) -> None:
+        self._contexts_batch: List[int] = []
+        self._targets_batch: List[int] = []
+        self._labels_batch: List[int] = []
+
+    def _add_to_batch(
+        self, context_words: List[int], target_word: List[int], labels: List[int]
+    ) -> None:
+        self._contexts_batch.extend(context_words)
+        self._targets_batch.extend(target_word)
+        self._labels_batch.extend(labels)
+
+    def _process_batch(self) -> Tuple[List, np.ndarray]:
+        batch = (
+            [np.array(self._contexts_batch), np.array(self._targets_batch)],
+            np.array(self._labels_batch),
+        )
+
+        self._reset_batch()
+
+        return batch
