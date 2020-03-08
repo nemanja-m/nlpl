@@ -1,12 +1,11 @@
+import gc
 import logging
 import os
 import pickle
 from typing import List, Dict, Tuple, Iterator
 
-import numpy as np
-import pandas as pd
+import models
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
-from tensorflow.keras.layers import dot, Input, Dense, Reshape, Embedding
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.text import Tokenizer
 
@@ -50,18 +49,32 @@ def load_sampler_and_sequences(sentences_path: str) -> Tuple[Sampler, List[List[
 
     sequences_path: str = os.path.join(DATA_DIR, "processed", "sequences.pkl")
     if os.path.exists(sequences_path):
-        with open(sequences_path, "rb") as fp:
-            sequences = pickle.load(fp)
-            logging.info(f"Precomputed text sequences loaded from '{sequences_path}'")
+        sequences = load_sequences(sequences_path)
     else:
         logging.info("Converting text to sequences")
         sequences = tokenizer.texts_to_sequences(sentences)
 
         with open(sequences_path, "wb") as fp:
-            pickle.dump(sequences, fp)
+            pickle.dump(sequences, fp, protocol=pickle.HIGHEST_PROTOCOL)
             logging.info(f"Sequences saved to {sequences_path}")
 
     return sampler, sequences
+
+
+def load_sequences(sequences_path: str) -> List[List[int]]:
+    sequences: List[List[int]]
+    with open(sequences_path, "rb") as fp:
+        # Disabling garbage collector before loading sequences greatly speeds
+        # up loading time.
+        gc.disable()
+
+        sequences = pickle.load(fp)
+
+        # Garbage collector must be enabled again.
+        gc.enable()
+
+    logging.info(f"Precomputed text sequences loaded from '{sequences_path}'")
+    return sequences
 
 
 def read_sentences(path: str) -> List[str]:
@@ -94,43 +107,10 @@ def create_tokenizer(
         os.mkdir(CACHE_DIR)
 
     with open(tokenizer_path, "wb") as fp:
-        pickle.dump(tokenizer, fp)
+        pickle.dump(tokenizer, fp, protocol=pickle.HIGHEST_PROTOCOL)
         logging.info(f"Tokenizer saved to {tokenizer_path}")
 
     return tokenizer
-
-
-def compile_model(context_size: int, target_size: int = 1) -> Model:
-    input_target = Input((target_size,))
-    input_context = Input((context_size,))
-
-    target_embedding = Embedding(
-        NUM_WORDS,
-        EMBEDDING_DIM,
-        input_length=target_size,
-        name="target_words_embedding",
-    )
-    target_embedding = target_embedding(input_target)
-    target_embedding = Reshape((EMBEDDING_DIM, target_size))(target_embedding)
-
-    context_embedding = Embedding(
-        NUM_WORDS,
-        EMBEDDING_DIM,
-        input_length=context_size,
-        name="context_words_embedding",
-    )
-    context_embedding = context_embedding(input_context)
-    context_embedding = Reshape((EMBEDDING_DIM, context_size))(context_embedding)
-
-    dot_product = dot([context_embedding, target_embedding], axes=1)
-    dot_product = Reshape((context_size * target_size,))(dot_product)
-
-    output = Dense(1, activation="sigmoid")(dot_product)
-
-    model = Model(inputs=[input_target, input_context], outputs=output)
-    model.compile(loss="mean_squared_error", optimizer="adam")
-
-    return model
 
 
 if __name__ == "__main__":
@@ -139,7 +119,10 @@ if __name__ == "__main__":
 
     window_size: int = 5
 
-    model: Model = compile_model(context_size=window_size * 2)
+    model: Model = models.Word2Vec(
+        num_words=NUM_WORDS, embedding_dim=EMBEDDING_DIM, context_size=window_size * 2
+    )
+    model.compile(loss="mean_squared_error", optimizer="adam")
 
     sample_generator: Iterator = generators.CBOWSampleGenerator(  # type: ignore
         sequences, sampler, window_size=window_size
@@ -165,18 +148,6 @@ if __name__ == "__main__":
         ],
     )
 
-    weights = model.layers[3].get_weights()[0][1:]
-    df = pd.DataFrame(weights, index=sampler._index_word.values())
-
     word_vectors_path = os.path.join(ROOT_DIR, "vectors", "cbow.vec")
-
-    np.savetxt(
-        word_vectors_path,
-        df.reset_index().values,
-        header="{} {}".format(NUM_WORDS, EMBEDDING_DIM),
-        fmt=["%s"] + ["%.12e"] * EMBEDDING_DIM,
-        delimiter=" ",
-        comments="",
-    )
-
+    model.save_word_vectors(path=word_vectors_path, index_word=sampler._index_word)
     logging.info(f"Word vectors saved to '{word_vectors_path}'")

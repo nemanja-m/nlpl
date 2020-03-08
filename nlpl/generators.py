@@ -96,4 +96,4 @@ class CBOWSampleGenerator(Generator):
 
         self._reset_batch()
 
-        return [target_sequence, context_sequence], labels
+        return [context_sequence, target_sequence], labels
