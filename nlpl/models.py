@@ -1,7 +1,6 @@
 from typing import Dict, List
 
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 
 
@@ -57,13 +56,18 @@ class Word2Vec(tf.keras.Model):
         return outputs
 
     def save_word_vectors(self, path: str, index_word: Dict[int, str]) -> None:
-        weights = self.target_embedding.get_weights()[0][1:]
-        df = pd.DataFrame(weights, index=index_word.values())
+        weights = self.target_embedding.get_weights()[0]
+
+        data = np.zeros((self.num_words - 1, self.embedding_dim + 1), dtype=object)
+        for index, word in index_word.items():
+            # Indices start from 1 because of OOV token.
+            data[index - 1][0] = word
+            data[index - 1][1:] = weights[index]
 
         np.savetxt(
             path,
-            df.reset_index().values,
-            header="{} {}".format(self.num_words, self.embedding_dim),
+            data,
+            header="{} {}".format(self.num_words - 1, self.embedding_dim),
             fmt=["%s"] + ["%.12e"] * self.embedding_dim,
             delimiter=" ",
             comments="",
