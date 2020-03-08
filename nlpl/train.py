@@ -1,17 +1,11 @@
-import logging
 import os
 from typing import Iterator
 
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.models import Model
 
-import generators
-import models
-import paths
-from loaders import SequenceLoader
-
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+from . import generators, models, paths
+from .loaders import SequenceLoader
 
 
 NUM_WORDS: int = 50_000 + 1  # +1 for PAD token.
@@ -58,6 +52,5 @@ if __name__ == "__main__":
 
     word_vectors_path: str = os.path.join(paths.VECTORS_DIR, "cbow.vec")
     model.save_word_vectors(
-        path=word_vectors_path, index_word=loader.tokenizer.index_word
+        path=word_vectors_path, index_word=loader.sampler.index_word
     )
-    logging.info(f"Word vectors saved to '{word_vectors_path}'")

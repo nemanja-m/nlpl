@@ -6,8 +6,11 @@ from typing import List, Dict, Optional
 
 from tensorflow.keras.preprocessing.text import Tokenizer
 
-import paths
-from sampling import Sampler
+from . import paths
+from .sampling import Sampler
+
+
+logger = logging.getLogger(__name__)
 
 
 class SequenceLoader:
@@ -29,7 +32,7 @@ class SequenceLoader:
     def _load_sentences(self) -> None:
         with open(self._sentences_path, "r") as fp:
             self._sentences = fp.read().splitlines()
-        logging.info(f"Sentences loaded from {self._sentences_path}")
+        logger.info(f"Sentences loaded from {self._sentences_path}")
 
     @property
     def tokenizer(self) -> Tokenizer:
@@ -47,22 +50,22 @@ class SequenceLoader:
         if os.path.exists(tokenizer_path):
             with open(tokenizer_path, "rb") as fp:
                 tokenizer = pickle.load(fp)
-                logging.info(f"Tokenizer loaded from {tokenizer_path}")
+                logger.info(f"Tokenizer loaded from {tokenizer_path}")
         else:
             tokenizer = Tokenizer(num_words=self._num_words)
             tokenizer.fit_on_texts(self.sentences)
 
-            logging.info(f"Tokenizer fit on texts")
+            logger.info(f"Tokenizer fit on texts")
 
             if not os.path.exists(paths.CACHE_DIR):
-                logging.info(
+                logger.info(
                     f"Cache folder does not exist. Creating '{paths.CACHE_DIR}' folder"
                 )
                 os.mkdir(paths.CACHE_DIR)
 
             with open(tokenizer_path, "wb") as fp:
                 pickle.dump(tokenizer, fp, protocol=pickle.HIGHEST_PROTOCOL)
-                logging.info(f"Tokenizer saved to {tokenizer_path}")
+                logger.info(f"Tokenizer saved to {tokenizer_path}")
 
         self._tokenizer = tokenizer
 
@@ -77,14 +80,14 @@ class SequenceLoader:
 
         if os.path.exists(sequences_path):
             sequences = _load_sequences(sequences_path)
-            logging.info(f"Cached text sequences loaded from '{sequences_path}'")
+            logger.info(f"Cached text sequences loaded from '{sequences_path}'")
         else:
-            logging.info("Converting sentences to sequences")
+            logger.info("Converting sentences to sequences")
             sequences = self.tokenizer.texts_to_sequences(self.sentences)
 
             with open(sequences_path, "wb") as fp:
                 pickle.dump(sequences, fp, protocol=pickle.HIGHEST_PROTOCOL)
-                logging.info(f"Sequences saved to '{sequences_path}'")
+                logger.info(f"Sequences saved to '{sequences_path}'")
 
         self._sequences = sequences
 
@@ -108,7 +111,7 @@ class SequenceLoader:
                 index_word[index] = word
 
         self._sampler = Sampler(word_counts=word_counts, index_word=index_word)
-        logging.info("Word sampler initialized")
+        logger.info("Word sampler initialized")
 
 
 def _load_sequences(path: str) -> List[List[int]]:

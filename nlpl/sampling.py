@@ -11,8 +11,8 @@ class Sampler:
         sample_rate: float = 1e-3,
         word_prob_power: float = 0.75,  # 3/4 as in the original word2vec paper.
     ):
-        self._index_word: Dict[int, str] = index_word
-        self._sample_rate: float = sample_rate
+        self.index_word: Dict[int, str] = index_word
+        self.sample_rate: float = sample_rate
 
         total_words, pow_total_words = self._count_total_words(
             word_counts, word_prob_power
@@ -62,8 +62,8 @@ class Sampler:
             return False
 
         word_prob = self._word_probs[word]
-        keep_prob: float = (np.sqrt(word_prob / self._sample_rate) + 1) * (
-            self._sample_rate / word_prob
+        keep_prob: float = (np.sqrt(word_prob / self.sample_rate) + 1) * (
+            self.sample_rate / word_prob
         )
 
         return np.random.random() <= keep_prob

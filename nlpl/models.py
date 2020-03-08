@@ -1,7 +1,11 @@
+import logging
 from typing import Dict, List
 
 import numpy as np
 import tensorflow as tf
+
+
+logger = logging.getLogger(__name__)
 
 
 class Word2Vec(tf.keras.Model):
@@ -72,3 +76,5 @@ class Word2Vec(tf.keras.Model):
             delimiter=" ",
             comments="",
         )
+
+        logger.info(f"Word vectors saved to '{path}'")

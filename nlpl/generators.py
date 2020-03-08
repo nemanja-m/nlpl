@@ -4,7 +4,7 @@ from typing import List, Tuple
 import numpy as np
 from tensorflow.keras.preprocessing import sequence
 
-from sampling import Sampler
+from .sampling import Sampler
 
 
 class CBOWSampleGenerator(Generator):
