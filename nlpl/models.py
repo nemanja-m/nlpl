@@ -42,6 +42,8 @@ class Word2Vec(tf.keras.Model):
 
         self.dense = tf.keras.layers.Dense(1, activation="sigmoid")
 
+        self.compile(loss="mean_squared_error", optimizer="adam")
+
     def call(self, inputs: List) -> tf.Tensor:
         context_input, target_input = inputs
 
