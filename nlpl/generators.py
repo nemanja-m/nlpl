@@ -1,5 +1,6 @@
+from abc import ABC, abstractmethod
 from collections import Generator
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from tensorflow.keras.preprocessing import sequence
@@ -7,7 +8,49 @@ from tensorflow.keras.preprocessing import sequence
 from .sampling import Sampler
 
 
-class CBOWSampleGenerator(Generator):
+# List[int] for skipgram and List[List[int]] for CBOW samples.
+SamplesBatch = List[Union[int, List[int]]]
+
+
+class _SampleGenerator(Generator, ABC):
+    """Generates training samples for word2vec models training.
+
+    Subclasses should also supports negative sampling and batching.
+
+    """
+
+    def __init__(
+        self, sequences: List[List[int]], window_size: int = 5, batch_size: int = 32,
+    ) -> None:
+        self._sequences = sequences
+        self._window_size = window_size
+        self._batch_size = batch_size
+
+        self._reset_batch()
+
+    def throw(self, type=None, value=None, traceback=None) -> None:
+        raise super().throw(type, value, traceback)
+
+    def _is_batch_ready(self) -> bool:
+        return len(self._contexts_batch) >= self._batch_size
+
+    def _reset_batch(self) -> None:
+        self._contexts_batch: SamplesBatch = []
+        self._targets_batch: SamplesBatch = []
+        self._labels_batch: List[int] = []
+
+    @abstractmethod
+    def _add_to_batch(
+        self, context_words: List[int], target_words: List[int], labels: List[int]
+    ) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _process_batch(self) -> Tuple[List, np.ndarray]:
+        raise NotImplementedError()
+
+
+class CBOWSampleGenerator(_SampleGenerator):
     """Generates training samples for continous bag of words model training.
 
     This sample generator also supports negative sampling and batching.
@@ -22,21 +65,14 @@ class CBOWSampleGenerator(Generator):
         negatives: int = 2,
         batch_size: int = 32,
     ) -> None:
-        self._sequences = sequences
+        super().__init__(sequences, window_size, batch_size)
+
         self._sampler = sampler
-        self._window_size = window_size
         self._negatives = negatives
-        self._batch_size = batch_size
-
-        self._reset_batch()
-
-    def throw(self, type=None, value=None, traceback=None) -> None:
-        raise super().throw(type, value, traceback)
 
     def send(self, _) -> Tuple[List, np.ndarray]:
-        context_size: int = self._window_size * 2
-
         iteration = 0
+
         while True:
             sentence = self._sequences[iteration]
             iteration = (iteration + 1) % len(self._sequences)
@@ -52,7 +88,7 @@ class CBOWSampleGenerator(Generator):
                         context_words.append(sentence[current_word_idx])
 
                 self._add_to_batch(
-                    context_words=context_words, target_word=word_index, label=1
+                    context_words=context_words, target_words=[word_index], labels=[1]
                 )
 
                 negative_samples = self._sampler.sample_negatives(
@@ -61,28 +97,24 @@ class CBOWSampleGenerator(Generator):
 
                 for negative_word in negative_samples:
                     self._add_to_batch(
-                        context_words=context_words, target_word=negative_word, label=0
+                        context_words=context_words,
+                        target_words=[negative_word],
+                        labels=[0],
                     )
 
                     if self._is_batch_ready():
-                        return self._process_batch(context_size)
-
-    def _is_batch_ready(self) -> bool:
-        return len(self._contexts_batch) >= self._batch_size
-
-    def _reset_batch(self) -> None:
-        self._contexts_batch: List[List[int]] = []
-        self._targets_batch: List[List[int]] = []
-        self._labels_batch: List[int] = []
+                        return self._process_batch()
 
     def _add_to_batch(
-        self, context_words: List[int], target_word: int, label: int
+        self, context_words: List[int], target_words: List[int], labels: List[int]
     ) -> None:
         self._contexts_batch.append(context_words)
-        self._targets_batch.append([target_word])
-        self._labels_batch.append(label)
+        self._targets_batch.append(target_words)
+        self._labels_batch.extend(labels)
 
-    def _process_batch(self, context_size: int) -> Tuple[List, np.ndarray]:
+    def _process_batch(self) -> Tuple[List, np.ndarray]:
+        context_size = self._window_size * 2
+
         context_sequence = sequence.pad_sequences(
             self._contexts_batch, maxlen=context_size
         )
@@ -99,7 +131,13 @@ class CBOWSampleGenerator(Generator):
         return [context_sequence, target_sequence], labels
 
 
-class SkipgramSamplesGenerator(Generator):
+class SkipgramSampleGenerator(_SampleGenerator):
+    """Generates training samples for skipgram model training.
+
+    This sample generator also supports negative sampling and batching.
+
+    """
+
     def __init__(
         self,
         sequences: List[List[int]],
@@ -107,19 +145,14 @@ class SkipgramSamplesGenerator(Generator):
         window_size: int = 5,
         batch_size: int = 32,
     ):
-        self._sequences = sequences
+        super().__init__(sequences, window_size, batch_size)
+
         self._num_words = num_words
-        self._window_size = window_size
-        self._batch_size = batch_size
-
         self._sampling_table = sequence.make_sampling_table(size=num_words)
-        self._reset_batch()
-
-    def throw(self, type=None, value=None, traceback=None) -> None:
-        raise super().throw(type, value, traceback)
 
     def send(self, _) -> Tuple[List, np.ndarray]:
         iteration = 0
+
         while True:
             sentence = self._sequences[iteration]
             iteration = (iteration + 1) % len(self._sequences)
@@ -132,7 +165,7 @@ class SkipgramSamplesGenerator(Generator):
             )
 
             if pairs:
-                target_words, context_words = zip(*pairs)
+                target_words, context_words = [list(words) for words in zip(*pairs)]
 
                 # Batch size is at least 32. Higher batch size is not
                 # problematic.
@@ -141,19 +174,11 @@ class SkipgramSamplesGenerator(Generator):
                 if self._is_batch_ready():
                     return self._process_batch()
 
-    def _is_batch_ready(self) -> bool:
-        return len(self._contexts_batch) >= self._batch_size
-
-    def _reset_batch(self) -> None:
-        self._contexts_batch: List[int] = []
-        self._targets_batch: List[int] = []
-        self._labels_batch: List[int] = []
-
     def _add_to_batch(
-        self, context_words: List[int], target_word: List[int], labels: List[int]
+        self, context_words: List[int], target_words: List[int], labels: List[int]
     ) -> None:
         self._contexts_batch.extend(context_words)
-        self._targets_batch.extend(target_word)
+        self._targets_batch.extend(target_words)
         self._labels_batch.extend(labels)
 
     def _process_batch(self) -> Tuple[List, np.ndarray]:
