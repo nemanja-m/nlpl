@@ -129,8 +129,8 @@ dmypy.json
 .pyre/
 
 # Data files
-data/**/*.csv
-data/**/*.txt
+**/data/**/*.csv
+**/data/**/*.txt
 
 # Pickled files
 *.pkl
