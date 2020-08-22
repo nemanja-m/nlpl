@@ -222,5 +222,5 @@ def evaluate(encoder=None, decoder=None):
 
 
 if __name__ == "__main__":
-    train()
-    # evaluate()
+    # train()
+    evaluate()

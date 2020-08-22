@@ -141,3 +141,8 @@ dmypy.json
 # Trained word vectors
 *.vec
 *.hdf5
+
+# Tensorflow models
+*.data*
+*.index
+checkpoint
